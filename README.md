@@ -26,7 +26,7 @@ scripts touch MFP.
 4. **Screenshots of every goals screen:** daily, per meal, macros, nutrients, any day-of-week settings. You'll type the numbers into Tally yourself; these are the reference once MFP is gone.
 5. **Your streak number.** A screenshot.
 6. **Apple Health export** (Health → your picture → Export All Health Data). Needed to check Tally's watch adjustment against MFP's, and fills any gaps in weight history. It is large; only energy, steps and weight records are read.
-7. **The settings behind MFP's watch adjustment:** your activity level, whether negative calorie adjustments are allowed, and a screenshot of one adjustment's "i" detail.
+7. **The settings behind MFP's watch adjustment:** your activity level, and screenshots of one day's adjustment "i" detail taken mid-day and again at night.
 
 ## Outbound calls
 

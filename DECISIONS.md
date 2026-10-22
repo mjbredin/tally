@@ -73,3 +73,15 @@ and he goes by a net calorie goal.
 - **Each run posts cumulative totals for today and yesterday; Tally keeps one row per day, metric and source.** Repeated runs can't double count, and yesterday's partial figure is corrected the next morning.
 - **The Shortcut reads Apple Watch samples only.** Raw Health samples from the phone and the watch overlap, and summing both double counts.
 - **The adjustment formula is fitted to MFP's own numbers, not guessed.** MFP doesn't document it. Its support replies describe adding the amount by which the tracker's total burn exceeds MFP's estimate for your profile, negative only when that option is on. Tally implements that and a plain active-energy variant as pure functions, and recon picks whichever reproduces MFP's adjustment rows on your history.
+
+## 2026-10-22 · Health route and storage, revisited
+
+Owner: negative calorie adjustments are on, from Apple Health and the watch.
+Open to the Apple Developer Program, and to a web app with Databricks or other
+storage, if better.
+
+- **The adjustment is total Health burn (active + resting) minus a baseline, and it can go negative.** This replaces the "two candidates" line above; the plain active-energy variant is dropped. The baseline is fitted at recon from MFP's adjustment rows and the "i" detail screenshots.
+- **If MFP prorates the baseline through the day, Tally prorates it to the time of the last Health sync.** Otherwise a stale sync would show a deficit that isn't real.
+- **No Apple Developer Program yet.** A small Health-bridge app only gets background updates when iOS schedules them (hourly at most for some data types, and iOS can defer), so it is barely fresher than the hourly Shortcut. Only a fully native app reads Health live when opened. That roughly doubles the build (native app plus the web app for desktop review), needs a Mac with Xcode, can't be compiled or run in Claude's Linux sessions, and costs $99 a year, more than MFP Premium's $79.99 list price.
+- **Go/no-go on native, measured in slice 1.** For a week while MFP is still active, note calories left in both apps at each meal. If they differ by more than 50 kcal at more than one meal in five, go fully native; the server, API and data model carry over unchanged.
+- **Storage stays Neon Postgres, not Databricks.** Databricks is built for analytics and its SQL warehouses take seconds to start; per-tap writes need an operational database. Neon is now owned by Databricks and Lakebase is built on it. Loading Tally's nightly export into Databricks for your own analysis is Later.

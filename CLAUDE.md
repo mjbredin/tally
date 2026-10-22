@@ -49,4 +49,5 @@ None yet. Slice 1 adds them here.
 - Health data can't be read while the iPhone is locked; Shortcut runs that land then fail. Missing Health data is never zero.
 - Shortcuts' Find Health Samples returns raw samples from every source; sum Apple Watch samples only or phone and watch double count.
 - The Shortcut posts cumulative day totals: upsert, never add.
+- The watch adjustment can be negative. Compare Health burn with the baseline as of the last sync, never as of now, or a stale sync shows a fake deficit.
 - MFP CSV: account-local dates, possible Excel-mangled dates, units in headers, blank micronutrients (null, not zero), notes with commas.

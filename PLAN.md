@@ -28,6 +28,7 @@ GitHub Actions.
 7. **Offline means cached reads and queued writes, not a sync engine.** One user and one main device; last write wins per row.
 8. **Weight is stored as entered.** Converting pounds to kilograms and back drifts by 0.1, and reconciliation must match exactly.
 9. **Photo and voice logging dropped** from Later to Not building, since you don't use MFP's AI features.
+10. **No native iPhone app yet, and no Databricks.** Native is the only way to read Health live, but it doubles the build and costs more than MFP. A week of side-by-side numbers in slice 1 decides it. Databricks is for analytics, not per-tap writes; Neon is Databricks' own Postgres. DECISIONS.md has the reasoning.
 
 ## Architecture
 
@@ -83,7 +84,7 @@ Each is a pure function in `lib/` with a hand-worked case.
 - Grams from percent at 4/4/9 (R11); net carbs, floored at 0 (R12).
 - Goal resolution: period by date, then weekday override, then meal goals (R2).
 - Trend weight with α = 0.1, carried over gaps; weekly rate from a 14-day slope; distance to goal (R15).
-- Net calories and both candidate adjustment formulas (R16).
+- Net calories and the adjustment, including negatives and proration to the last sync (R16, R23).
 - Ingest: cumulative totals replace, never add; missing Health data is not zero (R20–R22).
 - Import: idempotence, rounding tolerance, null handling, date formats, duplicates (REQUIREMENTS.md, Import tests).
 - Export, then import into an empty database, gives identical counts and hashes (R18).
@@ -177,6 +178,7 @@ deployed app in slice 5 is the evidence.
 6. **Backups are only as good as the key.** Lose the `age` private key and the backups are unreadable. Keep it in two places.
 7. **Health data is unreadable while the phone is locked.** Hourly runs that land then fail; the diary shows the last sync time, and a Sync button opens the Shortcut through a `shortcuts://` link (to verify on the phone).
 8. **Raw Health samples overlap across phone and watch.** The Shortcut reads Apple Watch samples only; if a day looks doubled against the Fitness app, that filter is the first suspect.
+9. **Tally's calories left may lag MFP's between syncs.** Measured in slice 1 against MFP; past 50 kcal at more than one meal in five, we go native.
 
 ## Clean-room check
 

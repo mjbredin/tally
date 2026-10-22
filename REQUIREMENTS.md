@@ -23,7 +23,7 @@ MFP while the subscription is still active; answers go back into this file.
 | B8 | Food analysis: highest foods by calories, protein | Rank foods by any nutrient over any date range | Ranked by total over the range, or per serving? Which ranges do you use? |
 | B9 | Barcode scan and search | Scan, then search; manual UPC fallback | — |
 | B10 | Saved meals (occasional) | Save a meal from the diary, add it in one tap | How many saved meals exist? |
-| B11 | Apple Health syncs into MFP; the watch's burn adjusts the day's calories; owner goes by a net calorie goal | Shortcut ingests Apple Watch active and resting energy; remaining = goal − food + adjustment | Your MFP activity level? "Allow negative calorie adjustments" on or off? Do you also log workouts by hand? Screenshot one adjustment's "i" detail mid-day and again at night. |
+| B11 | Apple Health syncs into MFP; the watch's burn adjusts the day's calories; owner goes by a net calorie goal | Shortcut ingests Apple Watch active and resting energy; remaining = goal − food + adjustment; negative adjustments on (owner) | Your MFP activity level? Do you also log workouts by hand? Screenshot one adjustment's "i" detail mid-day and again at night. |
 | B12 | Complete diary, streak | Streak counted from logged days, seeded from import | Do you press "Complete diary"? Current streak number. |
 
 ## Requirements
@@ -50,7 +50,7 @@ Numbered so tests and slices can cite them.
 - R13. Serving scaling: entry nutrients = food nutrients per base unit × (serving size in base units) × quantity. A gram override replaces the serving when the food has a gram weight.
 - R14. Recipe per-serving nutrients = sum of ingredient entries ÷ servings. Editing a recipe changes future entries only (R1).
 - R15. Trend weight: exponentially weighted moving average, α = 0.1 per day, carried across missing days. Weekly rate = least-squares slope of the trend over the last 14 days × 7. Distance to goal = trend − goal weight.
-- R16. Remaining = calorie goal − food + adjustment × share (default 100%). The adjustment comes from Health energy (R20) plus any exercise logged by hand, by the formula recon selects (DECISIONS.md, Apple Health).
+- R16. Remaining = calorie goal − food + adjustment × share (default 100%). Adjustment = Health total burn (active + resting, R20) − baseline burn, negative allowed, plus exercise logged by hand. The baseline is fitted at recon.
 
 **Data out**
 - R17. Export writes every table to JSON (lossless) and CSV (readable), with a manifest of row counts and hashes.
@@ -63,6 +63,7 @@ Numbered so tests and slices can cite them.
 - R20. `/api/ingest` accepts cumulative daily totals (active energy, resting energy, steps) and weight samples, authenticated by `INGEST_TOKEN`. One row per day, metric and source; a later post for the same day replaces the earlier value.
 - R21. Each Shortcut run posts today and yesterday.
 - R22. The diary shows when Health data last arrived. A day with no Health data shows the adjustment as missing, not zero.
+- R23. If MFP prorates the baseline through the day (the mid-day screenshot will show), Tally prorates it to the time of the last Health sync, not the current time.
 
 ## Source evidence (provisional)
 
@@ -98,3 +99,5 @@ real files, never on real data.
 | Posting today's active energy as 300, then 450, leaves one row of 450 | R20 |
 | A post for yesterday after midnight updates yesterday, not today | R21 |
 | A day with no Health post shows the adjustment as missing and remaining as food-only | R22 |
+| Health burn 300 kcal under the baseline gives a −300 adjustment | R16 |
+| A sync at 9 a.m. viewed at 2 p.m. is compared with the 9 a.m. baseline | R23 |
