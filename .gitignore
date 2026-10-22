@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+.env*
+!.env.example
+.vercel/
+
+# Real MFP and Apple Health data never enters git
+imports/
+*.zip
