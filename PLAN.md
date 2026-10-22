@@ -10,7 +10,9 @@ Tally is a Next.js app on Vercel's free tier with Postgres on Neon's free tier,
 installed to the iPhone home screen. The phone keeps today's diary, recents and
 your own foods in IndexedDB so screens render without waiting on the network,
 and queues writes when the kitchen Wi-Fi drops. Every food-database call goes
-through Tally's server, which caches results in Postgres. A diary entry
+through Tally's server, which caches results in Postgres. An iPhone Shortcut brings
+Apple Watch energy, steps and weight in from Apple Health, which is what your
+net calorie goal runs on. A diary entry
 snapshots its nutrients, goals are dated, and imported MFP days keep MFP's own
 totals as the number of record. Backups are encrypted nightly dumps kept by
 GitHub Actions.
@@ -20,7 +22,7 @@ GitHub Actions.
 1. **Plan before recon.** Your files aren't pulled yet and slice 1 doesn't need them. Recon runs at the start of slice 2, and the import mapping here is provisional until then.
 2. **Imported meals keep MFP's CSV total as the number of record.** Printable-diary rows are rounded per row, so their sum drifts from MFP's own total by a few units (R8). Cancel-test item 3 asks for a match "to the calorie and the gram," which only the CSV total can give. Items are stored and checked (R7) and drive food analysis, but the day's total for an imported meal is MFP's figure.
 3. **Weekly review states facts, not advice.** Your answer. It compares against your goals but doesn't tell you what to change.
-4. **Shortcut ingestion is a Must, in slice 4.** Your weight reaches MFP from Apple Health; without it, weight stops the day you cancel.
+4. **Apple Health through a Shortcut is a Must, in slice 1.** Your weight and your watch's burn reach MFP from Apple Health, and you go by a net calorie goal the watch adjusts, so a day isn't usable without it. A web app can't read Health, and a native app costs $99 a year; DECISIONS.md has the details.
 5. **Food analysis is a Must.** Your answer. It can only reach back as far as the printable diary you save, because the CSV has no food rows.
 6. **Native BarcodeDetector won't be the main path.** iOS Safari ships it only behind a feature flag; the WASM decoder is what runs on your phone.
 7. **Offline means cached reads and queued writes, not a sync engine.** One user and one main device; last write wins per row.
@@ -36,7 +38,7 @@ iPhone (home-screen app)                   Vercel (Hobby)                 Neon (
  │   cached foods, write outbox             │    auth, diary, foods, goals,
  └─ talks only to Tally's origin ───────────┤    import, export, ingest
                                             └─ server-side lookups ──► FoodData Central
-iPhone Shortcut (daily) ──► /api/ingest                              ──► Open Food Facts
+iPhone Shortcut (hourly) ─► /api/ingest                              ──► Open Food Facts
 GitHub Actions (nightly) ──► pg_dump | age ──► encrypted artifact (90 days)
 ```
 
@@ -65,7 +67,7 @@ columns MFP exports, with units confirmed at recon) appear on `food` and
 | `goal_meal` | period_id, meal_id, kcal or pct | Per-meal calorie goals (B3) |
 | `goal_nutrient` | period_id, nutrient, direction (`min`,`max`), amount | Fiber floor, sodium ceiling (B6) |
 | `weight` | measured_on, measured_at, value, unit, provenance, source_key | Stored as entered |
-| `measurement` | measured_on, kind, value, unit, provenance, source_key | Body measurements and daily steps |
+| `measurement` | measured_on, kind, value, unit, source, provenance, received_at | Body measurements, plus daily steps, active energy and resting energy from Health. Unique (measured_on, kind, source): a later post replaces the earlier one (R20) |
 | `exercise` | day, name, kcal, minutes, detail (jsonb), provenance, source_key | Imported history and manual rows |
 | `lookup_cache` | provider, kind, key, response (trimmed jsonb), fetched_at | Every FoodData Central and Open Food Facts response |
 | `import_run` | provenance, file_name, file_sha256, started_at, finished_at, report (jsonb) | One per file; the report is R9 |
@@ -81,12 +83,14 @@ Each is a pure function in `lib/` with a hand-worked case.
 - Grams from percent at 4/4/9 (R11); net carbs, floored at 0 (R12).
 - Goal resolution: period by date, then weekday override, then meal goals (R2).
 - Trend weight with α = 0.1, carried over gaps; weekly rate from a 14-day slope; distance to goal (R15).
+- Net calories and both candidate adjustment formulas (R16).
+- Ingest: cumulative totals replace, never add; missing Health data is not zero (R20–R22).
 - Import: idempotence, rounding tolerance, null handling, date formats, duplicates (REQUIREMENTS.md, Import tests).
 - Export, then import into an empty database, gives identical counts and hashes (R18).
 
 ## Screens
 
-1. **Today.** Date strip; one section per meal with its calorie goal and macro totals; a sticky footer with calories left plus your dashboard nutrients. Tap a meal to add.
+1. **Today.** Date strip; one section per meal with its calorie goal and macro totals; a sticky footer with calories left (goal − food + watch adjustment, with the time of the last Health sync) plus your dashboard nutrients. Tap a meal to add.
 2. **Add.** One search box with recents, frequents and saved meals under it, a scan button, and quick add.
 3. **Food.** Serving picker, quantity, gram override, nutrient preview, gluten warning, source shown.
 4. **Scan.** Camera with a manual UPC field. On a miss it opens a new food with the UPC filled in.
@@ -103,10 +107,10 @@ Dark mode follows the system and defaults to dark.
 Each slice is deployed and usable on your phone the day it lands. Each ends with
 a five-item phone checklist and a known-broken list.
 
-1. **Log a day.** Passkey and secret login (first thing tested on your phone, in home-screen mode), Today, Add with search (local, cache, FoodData Central), Food with serving picker, custom foods, quick add, copy meal and day, Goals (daily, weekday, meal, nutrient), dark mode, installable.
-2. **Bring your history.** Recon on your files, then the importer (CSV, printable diary, My Foods and My Meals pages), the reconciliation report, history views, recents and frequents seeded from items.
+1. **Log a day.** Passkey and secret login (first thing tested on your phone, in home-screen mode), Today, Add with search (local, cache, FoodData Central), Food with serving picker, custom foods, quick add, copy meal and day, Goals (daily, weekday, meal, nutrient, net), the Apple Health Shortcut and its endpoint, dark mode, installable.
+2. **Bring your history.** Recon on your files, then the importer (CSV, printable diary, My Foods and My Meals pages), the reconciliation report, history views, recents and frequents seeded from items, and the watch-adjustment formula checked against MFP's own adjustment rows (needs the Apple Health export).
 3. **Log faster.** Barcode scanning (Open Food Facts, then FoodData Central Branded, then manual), gluten flag and your GF-safe tag, saved meals, recipes.
-4. **See the trend.** Weight chart and trend, Shortcut endpoint for weight and steps, weekly review, food analysis, streaks.
+4. **See the trend.** Weight chart and trend, weekly review, food analysis, streaks.
 5. **Make it durable.** Offline outbox and service worker, export and re-import round trip, nightly encrypted backup and one restore on purpose, a network capture of the deployed app, exercise logging.
 
 ## Free-tier budget
@@ -116,31 +120,33 @@ for cancel-test item 9.
 
 | Service and limit | Expected use per month | Share |
 |---|---|---|
-| Vercel Hobby: 1M function invocations | 4,500 | 0.45% |
+| Vercel Hobby: 1M function invocations | 5,010 | 0.50% |
 | Vercel Hobby: 4 h active CPU | 0.06 h | 1.6% |
 | Vercel Hobby: 100 GB data transfer | 0.15 GB | 0.15% |
-| Neon Free: 100 CU-hours | 8.3 (awake 1 h/day) to 15.8 (2 h/day) | 8–16% |
+| Neon Free: 100 CU-hours | 19.9 typical to 27.4 worst case | 20–27% |
 | Neon Free: 0.5 GB storage | 44 MB | 8.7% |
 | Neon Free: 5 GB egress | 0.2 GB | 3.9% |
 | FoodData Central: 1,000 requests/hour | 40 in a heavy hour | 4% |
 | Open Food Facts: 15 product reads/min, 10 searches/min | A few scans per meal | Well under |
 | GitHub Actions (private repo, Free plan): 2,000 min | 240 (backups plus CI) | 12% |
 
-Assumptions: 150 server calls a day at 50 ms CPU and 10 KB each; Neon compute
-pinned to 0.25 CU, including its 5-minute idle tail and a 6-minute nightly
-backup wake; 10 years of history at 4 meals a day, 12 months of printable items
+Assumptions: 150 server calls a day at 50 ms CPU and 10 KB each, plus 17 hourly
+Health syncs (6 a.m. to 10 p.m.); Neon compute pinned to 0.25 CU, each sync
+waking it for 5.5 minutes, plus 1 hour (typical) or 2 hours (worst, no overlap
+with syncs) of logging a day and a 6-minute nightly backup wake; 10 years of history at 4 meals a day, 12 months of printable items
 at 20 a day, a year of new logging, 3,000 cached foods, doubled for indexes;
 5 MB compressed dump nightly; backups at 2 minutes a night and CI at 3 minutes
 per push for 60 pushes.
 
-The one limit to watch is Neon compute. Pinning to 0.25 CU keeps the worst case
-under 20%.
+The one limit to watch is Neon compute, and the hourly sync is most of it.
+Pinning to 0.25 CU keeps the worst case under 30%.
 
 ## Outbound calls
 
 | From | To | Carries |
 |---|---|---|
 | Phone | Tally's own origin only | Everything |
+| iPhone Shortcut | Tally's `/api/ingest` | Today's and yesterday's energy and steps, latest weight; `INGEST_TOKEN` |
 | Tally server | `api.nal.usda.gov` (FoodData Central) | Search term, UPC or FDC ID; API key |
 | Tally server | `world.openfoodfacts.org` | UPC, or a search term when you ask; User-Agent `Tally/1.0 (personal use)` |
 | GitHub Actions | Neon; GitHub artifact storage | Nightly dump, encrypted before upload |
@@ -169,6 +175,8 @@ deployed app in slice 5 is the evidence.
 4. **The export may not match the expected shape.** Public sources disagree on file names and columns. Each file type gets its own small adapter written after recon.
 5. **Gluten data is sparse.** Open Food Facts covers many US products thinly. "Unknown" is shown as unknown, never as safe; only your own tag makes a food safe.
 6. **Backups are only as good as the key.** Lose the `age` private key and the backups are unreadable. Keep it in two places.
+7. **Health data is unreadable while the phone is locked.** Hourly runs that land then fail; the diary shows the last sync time, and a Sync button opens the Shortcut through a `shortcuts://` link (to verify on the phone).
+8. **Raw Health samples overlap across phone and watch.** The Shortcut reads Apple Watch samples only; if a day looks doubled against the Fitness app, that filter is the first suspect.
 
 ## Clean-room check
 

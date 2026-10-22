@@ -46,4 +46,7 @@ None yet. Slice 1 adds them here.
 - Open Food Facts: 15 product reads and 10 searches a minute per IP, custom User-Agent required, no search-as-you-type.
 - FoodData Central: 1,000 requests an hour per key; going over blocks the key for an hour.
 - `pg_dump` needs Neon's direct connection string, not the pooled one, and a client version at least as new as the server.
+- Health data can't be read while the iPhone is locked; Shortcut runs that land then fail. Missing Health data is never zero.
+- Shortcuts' Find Health Samples returns raw samples from every source; sum Apple Watch samples only or phone and watch double count.
+- The Shortcut posts cumulative day totals: upsert, never add.
 - MFP CSV: account-local dates, possible Excel-mangled dates, units in headers, blank micronutrients (null, not zero), notes with commas.

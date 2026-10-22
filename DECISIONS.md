@@ -19,10 +19,10 @@ facts." On the remaining Phase 0 questions: "use your best judgement."
 - **Food analysis is a Must:** rank foods by any nutrient over any date range. Owner uses it in MFP.
 - **Per-meal calorie goals are a Must** and amend cancel-test item 5. Owner sets them in MFP.
 - **Nutrient goals carry a direction.** Fiber is a floor, sodium a ceiling; the UI colors accordingly. A single "goal" number cannot express both.
-- **Shortcut ingestion moves from Should to Must, slice 5 to slice 4.** Weight reaches MFP from Apple Health today; cancelling breaks that link unless we replace it.
+- **Shortcut ingestion moves from Should to Must, slice 5 to slice 1** (slice 1 per the Apple Health section below). Weight reaches MFP from Apple Health today; cancelling breaks that link unless we replace it.
 - **Not building: meal planning, AI assistant, coaching, weekly digest, photo or voice logging.** Owner doesn't use them; photo/voice was Later, now dropped.
 - **Recipes stay, built small.** Owner didn't mention them; they reuse the saved-meal tables plus a servings count, so the cost is low.
-- **Exercise: import the history, log manually, adjust the budget by 0% by default.** Owner didn't mention exercise; recomp lifters rarely eat it back. The setting (0–100%) exists. If you eat back exercise calories in MFP, flip it.
+- ~~**Exercise: adjust the budget by 0% by default.**~~ Superseded by the Apple Health section below: the owner goes by a net calorie goal. Exercise history is still imported.
 - **Dashboard defaults: protein, fiber, sodium.** Net carbs available, off by default; owner didn't mention it.
 
 ### Stack and infrastructure
@@ -59,3 +59,17 @@ facts." On the remaining Phase 0 questions: "use your best judgement."
 - **REA is not installed in the build session; CSV and HTML are parsed directly.** The brief allows it, and REA adds nothing over a parser for these formats.
 - **Yellow-tier observation of your MFP web session: not authorized by default.** Saved HTML first; ask again only if it leaves a specific gap.
 - **No cancel date set.** Don't let an annual renewal go through before the cancel test passes; switch to monthly if one is near.
+
+## 2026-10-22 · Apple Health and the net calorie goal
+
+Owner: Apple Health syncs into MFP, the watch's data adjusts the day's calories,
+and he goes by a net calorie goal.
+
+- **The net calorie goal is a Must and part of cancel-test item 5.** Remaining = goal − food + adjustment. It is how the owner decides what to eat, so it ships in slice 1.
+- **Apple Health arrives through an iPhone Shortcut posting to `/api/ingest`, in slice 1.** A web app cannot read Apple Health at all; Apple gives HealthKit only to native apps.
+- **No native companion app.** It needs the $99-a-year Apple Developer Program: free accounts appear unable to use HealthKit, and free-signed apps expire after 7 days. That breaks the $0 rule.
+- **Health Auto Export is the fallback, not the default.** Its Premium tier syncs to a REST endpoint in the background ($24.99 one-time or $6.99 a year in the US store). Only if Shortcuts prove unreliable, and only with the owner's yes, since it costs money.
+- **The Shortcut runs hourly and on demand; Tally shows the time of the last sync.** iOS won't let anything read Health data while the phone is locked, so a run that lands while it is locked fails and the next unlocked run catches up.
+- **Each run posts cumulative totals for today and yesterday; Tally keeps one row per day, metric and source.** Repeated runs can't double count, and yesterday's partial figure is corrected the next morning.
+- **The Shortcut reads Apple Watch samples only.** Raw Health samples from the phone and the watch overlap, and summing both double counts.
+- **The adjustment formula is fitted to MFP's own numbers, not guessed.** MFP doesn't document it. Its support replies describe adding the amount by which the tracker's total burn exceeds MFP's estimate for your profile, negative only when that option is on. Tally implements that and a plain active-energy variant as pure functions, and recon picks whichever reproduces MFP's adjustment rows on your history.

@@ -23,7 +23,7 @@ MFP while the subscription is still active; answers go back into this file.
 | B8 | Food analysis: highest foods by calories, protein | Rank foods by any nutrient over any date range | Ranked by total over the range, or per serving? Which ranges do you use? |
 | B9 | Barcode scan and search | Scan, then search; manual UPC fallback | — |
 | B10 | Saved meals (occasional) | Save a meal from the diary, add it in one tap | How many saved meals exist? |
-| B11 | Exercise | Imported history; budget adjust 0% by default | Do you log exercise? Does MFP add exercise calories to your remaining? |
+| B11 | Apple Health syncs into MFP; the watch's burn adjusts the day's calories; owner goes by a net calorie goal | Shortcut ingests Apple Watch active and resting energy; remaining = goal − food + adjustment | Your MFP activity level? "Allow negative calorie adjustments" on or off? Do you also log workouts by hand? Screenshot one adjustment's "i" detail mid-day and again at night. |
 | B12 | Complete diary, streak | Streak counted from logged days, seeded from import | Do you press "Complete diary"? Current streak number. |
 
 ## Requirements
@@ -50,7 +50,7 @@ Numbered so tests and slices can cite them.
 - R13. Serving scaling: entry nutrients = food nutrients per base unit × (serving size in base units) × quantity. A gram override replaces the serving when the food has a gram weight.
 - R14. Recipe per-serving nutrients = sum of ingredient entries ÷ servings. Editing a recipe changes future entries only (R1).
 - R15. Trend weight: exponentially weighted moving average, α = 0.1 per day, carried across missing days. Weekly rate = least-squares slope of the trend over the last 14 days × 7. Distance to goal = trend − goal weight.
-- R16. Exercise calories add to the day's budget × the adjust share (default 0%).
+- R16. Remaining = calorie goal − food + adjustment × share (default 100%). The adjustment comes from Health energy (R20) plus any exercise logged by hand, by the formula recon selects (DECISIONS.md, Apple Health).
 
 **Data out**
 - R17. Export writes every table to JSON (lossless) and CSV (readable), with a manifest of row counts and hashes.
@@ -58,6 +58,11 @@ Numbered so tests and slices can cite them.
 
 **Privacy**
 - R19. The phone talks only to Tally's own origin. Tally's server talks only to FoodData Central and Open Food Facts, and only with a search term, UPC or food ID.
+
+**Apple Health**
+- R20. `/api/ingest` accepts cumulative daily totals (active energy, resting energy, steps) and weight samples, authenticated by `INGEST_TOKEN`. One row per day, metric and source; a later post for the same day replaces the earlier value.
+- R21. Each Shortcut run posts today and yesterday.
+- R22. The diary shows when Health data last arrived. A day with no Health data shows the adjustment as missing, not zero.
 
 ## Source evidence (provisional)
 
@@ -73,7 +78,7 @@ what the files actually contain.
 
 **My Foods, My Meals, My Recipes pages (saved HTML).** Lists, possibly paginated. Whether nutrients appear on the list pages or only on each item's page is unknown.
 
-## Import tests
+## Import and ingest tests
 
 Derived from the requirements; each runs on synthetic fixtures shaped like the
 real files, never on real data.
@@ -90,3 +95,6 @@ real files, never on real data.
 | `Sodium (mg)` maps to sodium in milligrams | Import |
 | A duplicate day+meal row is reported, not double-counted | R9 |
 | Export, then import into an empty database, gives identical counts and hashes | R17, R18 |
+| Posting today's active energy as 300, then 450, leaves one row of 450 | R20 |
+| A post for yesterday after midnight updates yesterday, not today | R21 |
+| A day with no Health post shows the adjustment as missing and remaining as food-only | R22 |
